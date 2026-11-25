@@ -30,8 +30,10 @@ final class LocalSave {
     this.latestResult,
     this.unfinishedShift,
     this.completedShifts = const {},
+    this.deliveredGifts = const {},
     this.dailyRecord,
     this.musicEnabled = true,
+    this.onboardingSeen = false,
   });
 
   factory LocalSave.fromJson(Map<String, dynamic> json) {
@@ -51,8 +53,12 @@ final class LocalSave {
       completedShifts: Set.unmodifiable(
         (json['completed_shifts'] as List?)?.cast<String>() ?? const <String>[],
       ),
+      deliveredGifts: Set.unmodifiable(
+        (json['delivered_gifts'] as List?)?.cast<String>() ?? const <String>[],
+      ),
       dailyRecord: daily == null ? null : DailyRecord.fromJson(daily),
       musicEnabled: json['music_enabled'] as bool? ?? true,
+      onboardingSeen: json['onboarding_seen'] as bool? ?? false,
     );
   }
 
@@ -61,8 +67,10 @@ final class LocalSave {
   final ShiftResult? latestResult;
   final ShiftCheckpoint? unfinishedShift;
   final Set<String> completedShifts;
+  final Set<String> deliveredGifts;
   final DailyRecord? dailyRecord;
   final bool musicEnabled;
+  final bool onboardingSeen;
 
   Map<String, Object?> toJson() => {
     'schema': 1,
@@ -71,8 +79,10 @@ final class LocalSave {
     'latest_result': latestResult?.toJson(),
     'unfinished_shift': unfinishedShift?.toJson(),
     'completed_shifts': completedShifts.toList(),
+    if (deliveredGifts.isNotEmpty) 'delivered_gifts': deliveredGifts.toList(),
     'daily_record': dailyRecord?.toJson(),
     'music_enabled': musicEnabled,
+    'onboarding_seen': onboardingSeen,
   };
 }
 

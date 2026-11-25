@@ -3,7 +3,7 @@
   "version": "codex_handoff_v1",
   "generated_at_utc": "2026-11-20",
   "note": "Each playable sprite is a standalone PNG. Preview composites are only in docs/previews, NEVER sources for slicing.",
-  "count": 71,
+  "count": 72,
   "assets": [
     {
       "group": "gifts",
@@ -680,6 +680,20 @@
       "alpha_max": 255,
       "sha256": "5da591f059319c0cd21549c1082fa809154e2941068bbfed8393a31b4aa50031",
       "bytes": 11130
+    },
+    {
+      "group": "backgrounds",
+      "path": "assets/backgrounds/christmas_morning.png",
+      "source": "Built-in ImageGen with assets/backgrounds/factory_ipad_landscape.png as a style reference",
+      "origin_type": "generated Christmas morning cutscene background",
+      "prompt": "Use case: stylized-concept. Create one original background plate for a Christmas-morning cutscene in the mobile game Santa’s Gift Rush. Image 1 is a style reference for the game's richly textured storybook 3D rendering and glowing amber/evergreen color, with a new domestic scene as the output. A cozy lived-in living room in the hour before sunrise, seen straight on from a low child's-eye camera. Center a real evergreen Christmas tree with warm fairy lights, hand-me-down glass ornaments and a small simple gold star. A cool blue snowy window and an old softly glowing fireplace flank it. Warm reflected tree lights on worn wooden boards and a simple dark woven rug. The mood is quiet and nostalgic. Compose a square master with the star around y=13%, visible lowest branches and tree skirt around y=66%, and fully clear floor from y=66% to y=90% for compositing actual earned toy sprites later. Keep the tree center, star, skirt, and sprite landing area within x=30%–70% so it crops beautifully to a portrait phone; leave peripheral room details on wide tablets. Leave the center under the tree visibly empty. Rich material depth, cozy amber highlights, soft shadow, restrained magic. No people, no toys, no wrapped gifts, no tracks, no captions, no logos, no watermark, no frame.",
+      "w": 1254,
+      "h": 1254,
+      "mode": "RGB",
+      "alpha_min": null,
+      "alpha_max": null,
+      "sha256": "fa06c66fcee248d9bb30ce7aec5826a373e391447dc2221289e743cb20d968c7",
+      "bytes": 2822239
     },
     {
       "group": "backgrounds",

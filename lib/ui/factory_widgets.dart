@@ -78,12 +78,14 @@ class FactoryPanel extends StatelessWidget {
     required this.title,
     required this.child,
     this.footer,
+    this.footerHeight = 48,
   });
 
   final PanelArt art;
   final String title;
   final Widget child;
   final Widget? footer;
+  final double footerHeight;
 
   @override
   Widget build(BuildContext context) {
@@ -98,7 +100,7 @@ class FactoryPanel extends StatelessWidget {
           final height = width / art.aspect;
           final isTutorial = art == PanelArt.tutorial;
           final footerInset = height * (isTutorial ? .17 : .143);
-          final footerHeight = footer == null ? 0.0 : 48.0;
+          final actionHeight = footer == null ? 0.0 : footerHeight;
           return Center(
             child: SizedBox(
               width: width,
@@ -141,7 +143,7 @@ class FactoryPanel extends StatelessWidget {
                   ),
                   Positioned(
                     top: height * (isTutorial ? .29 : .228),
-                    bottom: footerInset + footerHeight,
+                    bottom: footerInset + actionHeight,
                     left: width * .139,
                     right: width * .139,
                     child: LayoutBuilder(
@@ -167,7 +169,7 @@ class FactoryPanel extends StatelessWidget {
                   if (footer case final action?)
                     Positioned(
                       bottom: footerInset,
-                      height: footerHeight,
+                      height: actionHeight,
                       left: width * .139,
                       right: width * .139,
                       child: Center(child: action),
@@ -188,11 +190,15 @@ class FactoryAction extends StatelessWidget {
     required this.label,
     required this.onPressed,
     this.secondary = false,
+    this.allowTwoLines = false,
   });
 
   final String label;
   final VoidCallback onPressed;
   final bool secondary;
+  final bool allowTwoLines;
+
+  static const _buttonArtAspectRatio = 635 / 240;
 
   @override
   Widget build(BuildContext context) {
@@ -221,33 +227,65 @@ class FactoryAction extends StatelessWidget {
             padding: EdgeInsets.zero,
             shape: const StadiumBorder(),
           ),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              Image.asset(
-                'assets/ui/buttons/btn_green_blank.png',
-                fit: BoxFit.contain,
-                excludeFromSemantics: true,
-              ),
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 30),
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(
-                      label,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
+          child: Center(
+            child: AspectRatio(
+              aspectRatio: _buttonArtAspectRatio,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Image.asset(
+                    'assets/ui/buttons/btn_green_blank.png',
+                    fit: BoxFit.contain,
+                    excludeFromSemantics: true,
                   ),
-                ),
+                  FractionallySizedBox(
+                    widthFactor: .68,
+                    heightFactor: .58,
+                    child: LayoutBuilder(builder: _primaryLabel),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _primaryLabel(BuildContext context, BoxConstraints space) {
+    const style = TextStyle(fontSize: 18, fontWeight: FontWeight.w800);
+    double? wrapWidth;
+    if (allowTwoLines) {
+      final painter = TextPainter(
+        text: TextSpan(
+          text: label,
+          style: DefaultTextStyle.of(context).style.merge(style),
+        ),
+        textDirection: Directionality.of(context),
+        textScaler: MediaQuery.textScalerOf(context),
+      )..layout();
+      // Wrap when a single line would shrink noticeably. Give the longest
+      // word enough room before fitting the two lines into the artwork.
+      if (painter.width * .84 > space.maxWidth) {
+        wrapWidth = max(space.maxWidth, painter.minIntrinsicWidth);
+      }
+      painter.dispose();
+    }
+
+    final text = Text(
+      label,
+      textAlign: TextAlign.center,
+      maxLines: wrapWidth == null ? 1 : 2,
+      style: wrapWidth == null ? style : style.copyWith(height: 1),
+    );
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: wrapWidth == null
+          ? text
+          : ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: wrapWidth),
+              child: text,
+            ),
     );
   }
 }

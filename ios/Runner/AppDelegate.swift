@@ -18,10 +18,11 @@ import UIKit
 }
 
 private final class HolidayAudio: NSObject, FlutterPlugin, AVAudioPlayerDelegate {
+  private static let treeMusicAsset = "assets/audio/snowfall_at_the_pole.mp3"
   private static let trackAssets = [
     "assets/audio/workshop_lights.mp3",
     "assets/audio/sleigh_route.mp3",
-    "assets/audio/snowfall_at_the_pole.mp3",
+    treeMusicAsset,
   ]
   private static let bellAsset = "assets/audio/sleigh_bells.mp3"
   private let log = OSLog(subsystem: "com.ozyunus.santasGiftRush", category: "HolidayAudio")
@@ -29,6 +30,8 @@ private final class HolidayAudio: NSObject, FlutterPlugin, AVAudioPlayerDelegate
   private var trackIndex = 0
   private var musicPlayer: AVAudioPlayer?
   private var bellPlayer: AVAudioPlayer?
+  private var treePlayer: AVAudioPlayer?
+  private var treeSceneActive = false
   private var musicEnabled = false
   private var interrupted = false
 
@@ -66,7 +69,25 @@ private final class HolidayAudio: NSObject, FlutterPlugin, AVAudioPlayerDelegate
         startMusic()
       } else {
         musicPlayer?.pause()
+        treePlayer?.pause()
         bellPlayer?.stop()
+      }
+      result(nil)
+    case "setTreeSceneActive":
+      guard let active = call.arguments as? Bool else {
+        result(FlutterError(code: "invalid_argument", message: "Expected a scene flag.", details: nil))
+        return
+      }
+      if active != treeSceneActive {
+        treeSceneActive = active
+        if active {
+          musicPlayer?.pause()
+          bellPlayer?.stop()
+        } else {
+          treePlayer?.stop()
+          treePlayer = nil
+        }
+        startMusic()
       }
       result(nil)
     case "playSleighBells":
@@ -92,6 +113,7 @@ private final class HolidayAudio: NSObject, FlutterPlugin, AVAudioPlayerDelegate
     if type == .began {
       interrupted = true
       musicPlayer?.pause()
+      treePlayer?.pause()
       bellPlayer?.stop()
     } else {
       interrupted = false
@@ -104,7 +126,8 @@ private final class HolidayAudio: NSObject, FlutterPlugin, AVAudioPlayerDelegate
 
   private func startMusic() {
     guard musicEnabled && !interrupted else { return }
-    guard musicPlayer?.isPlaying != true else { return }
+    let current = treeSceneActive ? treePlayer : musicPlayer
+    guard current?.isPlaying != true else { return }
     do {
       let session = AVAudioSession.sharedInstance()
       try session.setCategory(.ambient, mode: .default)
@@ -114,7 +137,15 @@ private final class HolidayAudio: NSObject, FlutterPlugin, AVAudioPlayerDelegate
       return
     }
 
-    if let current = musicPlayer, current.play() { return }
+    if let current, current.play() { return }
+    if treeSceneActive {
+      if let player = audioPlayer(for: Self.treeMusicAsset, volume: 0), player.play() {
+        treePlayer = player
+        player.setVolume(0.28, fadeDuration: 0.45)
+        os_log("Playing %{public}@ for gift delivery", log: log, type: .default, Self.treeMusicAsset)
+      }
+      return
+    }
     musicPlayer = nil
     for _ in Self.trackAssets {
       let asset = Self.trackAssets[trackIndex]

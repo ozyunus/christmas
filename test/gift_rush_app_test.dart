@@ -1,14 +1,19 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flame/cache.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:santas_gift_rush/game/game_config.dart';
 import 'package:santas_gift_rush/game/shift_catalog.dart';
 import 'package:santas_gift_rush/platform/analytics.dart';
 import 'package:santas_gift_rush/platform/holiday_audio.dart';
+import 'package:santas_gift_rush/platform/integrations.dart';
 import 'package:santas_gift_rush/platform/local_save.dart';
 import 'package:santas_gift_rush/ui/factory_scene.dart';
+import 'package:santas_gift_rush/ui/factory_widgets.dart';
+import 'package:santas_gift_rush/ui/gift_delivery_scene.dart';
 import 'package:santas_gift_rush/ui/gift_rush_app.dart';
 import 'package:santas_gift_rush/ui/shift_flight_transition.dart';
 
@@ -32,6 +37,7 @@ void main() {
     FakeViewPadding insets = const FakeViewPadding(top: 47, bottom: 34),
     _MemorySave? initialRepository,
     DateTime Function()? now,
+    OnboardingAdapter? onboarding,
   }) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = size;
@@ -48,6 +54,7 @@ void main() {
           repository: harness.repository,
           analytics: harness,
           audio: harness,
+          onboarding: onboarding,
           clockMs: () => harness.elapsedMs,
           now: now,
         ),
@@ -56,6 +63,65 @@ void main() {
     await tester.pump();
     return harness;
   }
+
+  testWidgets('a completed tour saves progress and opens Play Shifts', (
+    tester,
+  ) async {
+    final tour = _Onboarding();
+    final harness = await mount(tester, onboarding: tour);
+    expect(tour.calls, 1);
+    expect(tour.isMainMenuVisible(), isTrue);
+    expect(tour.isOnboardingEligible(), isTrue);
+    tour.complete(OnboardingOutcome.completed);
+    await tester.pumpAndSettle();
+    expect(find.text('Packing Practice'), findsOneWidget);
+    expect(harness.repository.data.onboardingSeen, isTrue);
+    expect(harness.repository.data.unfinishedShift, isNull);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    final nextTour = _Onboarding();
+    await mount(
+      tester,
+      initialRepository: harness.repository,
+      onboarding: nextTour,
+    );
+    expect(nextTour.calls, 1);
+    expect(nextTour.isMainMenuVisible(), isTrue);
+    expect(nextTour.isOnboardingEligible(), isFalse);
+  });
+
+  testWidgets('skipping the tour keeps the player on the main menu', (
+    tester,
+  ) async {
+    final tour = _Onboarding();
+    final harness = await mount(tester, onboarding: tour);
+    tour.complete(OnboardingOutcome.dismissed);
+    await tester.pump();
+    expect(find.text('Arcade'), findsOneWidget);
+    expect(harness.repository.data.onboardingSeen, isTrue);
+  });
+
+  testWidgets('bad or slow onboarding cannot take over an active shift', (
+    tester,
+  ) async {
+    final tour = _Onboarding();
+    final harness = await mount(tester, onboarding: tour);
+    await tester.tap(find.text('Arcade'));
+    await tester.pump();
+    final roundId = harness.repository.data.unfinishedShift!.roundId;
+    expect(tour.isMainMenuVisible(), isFalse);
+    expect(tour.isOnboardingEligible(), isFalse);
+
+    tour.onStarted();
+    tour.complete(OnboardingOutcome.unavailable);
+    await tester.pump();
+    expect(find.text('Resume Shift'), findsOneWidget);
+    expect(harness.repository.data.onboardingSeen, isFalse);
+    expect(harness.repository.data.unfinishedShift!.roundId, roundId);
+    await tester.tap(find.text('Resume Shift'));
+    await tester.pump();
+    expect(find.text('SHIP'), findsOneWidget);
+  });
 
   Future<void> sortCorrectly(
     WidgetTester tester,
@@ -184,7 +250,7 @@ void main() {
     expect(find.byKey(const ValueKey('nice')), findsOneWidget);
   });
 
-  testWidgets('a cleared campaign shift unlocks the next shift permanently', (
+  testWidgets('clearing a shift delivers gifts and unlocks the next shift', (
     tester,
   ) async {
     final harness = await mount(tester);
@@ -198,8 +264,30 @@ void main() {
     await sortCorrectly(tester, harness, content.campaign.first, 8);
     harness.elapsedMs = 30000;
     await tester.pump(const Duration(milliseconds: 16));
-    expect(find.text('Shift Cleared'), findsOneWidget);
+    await tester.pump();
+    expect(find.byType(GiftDeliveryScene), findsOneWidget);
+    expect(find.text('Shift Cleared'), findsNothing);
     expect(harness.repository.data.completedShifts, {'packing_practice'});
+    final earned = harness.repository.data.latestResult!.stats.shipped.keys;
+    final delivery = tester.widget<GiftDeliveryScene>(
+      find.byType(GiftDeliveryScene),
+    );
+    expect(delivery.gifts.map((gift) => gift.id), earned);
+    expect(delivery.arriving, earned.toSet());
+    expect(harness.repository.data.deliveredGifts, earned.toSet());
+    expect(harness.treeSceneStates, [true]);
+    await tester.pump(const Duration(seconds: 2));
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    await tester.pump(giftDeliveryDuration);
+    expect(find.byType(GiftDeliveryScene), findsOneWidget);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 3));
+    expect(find.byType(GiftDeliveryScene), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 1001));
+    expect(find.text('Shift Cleared'), findsOneWidget);
+    expect(harness.treeSceneStates, [true, false]);
+
     await tester.tap(find.text('Next Shift'));
     await tester.pump();
     await tester.pump();
@@ -225,11 +313,28 @@ void main() {
     expect(find.text('0/15 correct'), findsOneWidget);
     expect(harness.bellCount, 1);
 
+    await sortCorrectly(tester, harness, content.campaign[1], 33, stepMs: 1300);
+    harness.elapsedMs = 75000;
+    await tester.pump(const Duration(milliseconds: 16));
+    final nextDelivery = tester.widget<GiftDeliveryScene>(
+      find.byType(GiftDeliveryScene),
+    );
+    final delivered = harness.repository.data.deliveredGifts;
+    expect(delivered, containsAll(earned));
+    expect(nextDelivery.gifts.map((gift) => gift.id).toSet(), delivered);
+    expect(nextDelivery.arriving, delivered.difference(earned.toSet()));
+    expect(nextDelivery.arriving, isNotEmpty);
+    await tester.tap(find.text('Skip'));
+    await tester.pump();
+    expect(find.text('Shift Cleared'), findsOneWidget);
+    expect(find.byType(GiftDeliveryScene), findsNothing);
+    expect(harness.treeSceneStates, [true, false, true, false]);
+
     await tester.pumpWidget(const SizedBox());
     await mount(tester, initialRepository: harness.repository);
     await tester.tap(find.text('Play Shifts'));
     await tester.pump();
-    expect(find.text('Workshop Shift'), findsOneWidget);
+    expect(find.text('Christmas Eve Rush'), findsOneWidget);
   });
 
   testWidgets('music pauses with the app and remembers the saved toggle', (
@@ -267,7 +372,12 @@ void main() {
       ..data = const LocalSave(
         completedShifts: {'packing_practice', 'workshop_shift'},
       );
-    final harness = await mount(tester, initialRepository: repository);
+    final harness = await mount(
+      tester,
+      initialRepository: repository,
+      size: const Size(1024, 768),
+      insets: const FakeViewPadding(top: 24, bottom: 20),
+    );
     await tester.tap(find.text('Play Shifts'));
     await tester.pump();
     await tester.tap(find.text('Christmas Eve Rush'));
@@ -275,6 +385,19 @@ void main() {
     await sortCorrectly(tester, harness, content.campaign.last, 25);
     harness.elapsedMs = 60000;
     await tester.pump(const Duration(milliseconds: 16));
+    await tester.pump();
+    final delivery = tester.widget<GiftDeliveryScene>(
+      find.byType(GiftDeliveryScene),
+    );
+    expect(delivery.finale, isTrue);
+    await tester.pump(giftDeliveryDuration);
+    expect(find.byType(GiftDeliveryScene), findsOneWidget);
+    await tester.pump(
+      giftDeliveryFinaleDuration -
+          giftDeliveryDuration +
+          const Duration(milliseconds: 1),
+    );
+    expect(find.byType(GiftDeliveryScene), findsNothing);
     expect(find.text('Campaign Complete'), findsOneWidget);
     expect(find.text('Play Arcade'), findsOneWidget);
     expect(find.text('Daily Shift'), findsOneWidget);
@@ -316,7 +439,11 @@ void main() {
   testWidgets('Texas preview tracks its two orders and shows the result', (
     tester,
   ) async {
-    final harness = await mount(tester);
+    final harness = await mount(
+      tester,
+      size: const Size(375, 667),
+      insets: const FakeViewPadding(top: 20),
+    );
     await tester.tap(find.text("Santa's Road Trip"));
     await tester.pump();
     expect(find.text('Texas Toy Roundup'), findsOneWidget);
@@ -324,7 +451,44 @@ void main() {
     expect(find.text('Great Lakes Ice Run'), findsOneWidget);
     await tester.tap(find.text('Texas Toy Roundup'));
     await tester.pump();
-    await tester.tap(find.text('Play Preview'));
+    final label = find.text('Play Preview');
+    final action = find.ancestor(
+      of: label,
+      matching: find.byType(FactoryAction),
+    );
+    final artwork = tester.getRect(
+      find.descendant(of: action, matching: find.byType(Image)),
+    );
+    final labelRect = tester.getRect(label);
+    expect(artwork.width, greaterThan(145));
+    expect(labelRect.left - artwork.left, greaterThanOrEqualTo(16));
+    expect(artwork.right - labelRect.right, greaterThanOrEqualTo(16));
+
+    tester.view.physicalSize = const Size(320, 568);
+    tester.platformDispatcher.textScaleFactorTestValue = 1.35;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    await tester.pump();
+    final paragraph = tester.renderObject<RenderParagraph>(label);
+    final lines = paragraph.getBoxesForSelection(
+      const TextSelection(baseOffset: 0, extentOffset: 'Play Preview'.length),
+    );
+    expect(lines.map((line) => line.top).toSet(), hasLength(2));
+    final compactArtwork = tester.getRect(
+      find.descendant(of: action, matching: find.byType(Image)),
+    );
+    expect(
+      compactArtwork.deflate(8).contains(tester.getRect(label).topLeft),
+      isTrue,
+    );
+    expect(
+      compactArtwork.deflate(8).contains(tester.getRect(label).bottomRight),
+      isTrue,
+    );
+
+    tester.view.physicalSize = const Size(375, 667);
+    tester.platformDispatcher.clearTextScaleFactorTestValue();
+    await tester.pump();
+    await tester.tap(label);
     await tester.pump();
     expect(find.text('Rocking horse 0/2'), findsOneWidget);
     expect(find.text('Cowboy hat 0/2'), findsOneWidget);
@@ -473,12 +637,36 @@ void main() {
   );
 }
 
+final class _Onboarding implements OnboardingAdapter {
+  final _outcome = Completer<OnboardingOutcome>();
+  int calls = 0;
+  late bool Function() isMainMenuVisible;
+  late bool Function() isOnboardingEligible;
+  late void Function() onStarted;
+
+  void complete(OnboardingOutcome outcome) => _outcome.complete(outcome);
+
+  @override
+  Future<OnboardingOutcome> trackMainMenu({
+    required bool Function() isMainMenuVisible,
+    required bool Function() isOnboardingEligible,
+    required void Function() onStarted,
+  }) {
+    calls++;
+    this.isMainMenuVisible = isMainMenuVisible;
+    this.isOnboardingEligible = isOnboardingEligible;
+    this.onStarted = onStarted;
+    return _outcome.future;
+  }
+}
+
 final class _Harness implements AnalyticsService, HolidayAudio {
   _Harness(this.repository);
 
   final _MemorySave repository;
   final events = <AnalyticsEvent>[];
   final musicStates = <bool>[];
+  final treeSceneStates = <bool>[];
   int bellCount = 0;
   int elapsedMs = 0;
 
@@ -487,6 +675,9 @@ final class _Harness implements AnalyticsService, HolidayAudio {
 
   @override
   void setMusicPlaying(bool playing) => musicStates.add(playing);
+
+  @override
+  void setTreeSceneActive(bool active) => treeSceneStates.add(active);
 
   @override
   void playSleighBells() => bellCount++;

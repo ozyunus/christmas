@@ -115,6 +115,8 @@ void main() {
       final file = File('${directory.path}/save.json');
       final repository = JsonLocalSaveRepository(file);
       expect((await repository.load()).unfinishedShift, isNull);
+      await repository.save(const LocalSave());
+      expect((await repository.load()).deliveredGifts, isEmpty);
       final shift = newShift()..start();
       final gift = shift.activeGift!;
       shift.sort(
@@ -131,12 +133,14 @@ void main() {
             bestScore: 500,
             sessionIndex: 3,
             unfinishedShift: checkpoint,
+            deliveredGifts: {'toy_train', 'teddy_bear'},
           ),
         ),
       ]);
       final saved = await JsonLocalSaveRepository(file).load();
       expect(saved.bestScore, 500);
       expect(saved.sessionIndex, 3);
+      expect(saved.deliveredGifts.toList(), ['toy_train', 'teddy_bear']);
       expect(saved.unfinishedShift!.elapsedMs, 575);
       expect(saved.unfinishedShift!.stats.score, 100);
       final restored = ShiftSessionController.restore(

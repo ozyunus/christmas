@@ -11,9 +11,11 @@ import '../game/shift_catalog.dart';
 import '../game/shift_session.dart';
 import '../platform/analytics.dart';
 import '../platform/holiday_audio.dart';
+import '../platform/integrations.dart';
 import '../platform/local_save.dart';
 import 'factory_scene.dart';
 import 'factory_widgets.dart';
+import 'gift_delivery_scene.dart';
 import 'game_layout.dart';
 import 'shift_flight_transition.dart';
 import 'shift_widgets.dart';
@@ -21,6 +23,8 @@ import 'shift_widgets.dart';
 const gameTitle = "Santa's Gift Rush";
 
 enum _MenuPage { home, campaign, roadTrip, help }
+
+typedef _GiftDelivery = ({Set<String> arriving, bool finale});
 
 ThemeData factoryTheme() {
   return ThemeData(
@@ -39,6 +43,7 @@ class GiftRushApp extends StatefulWidget {
     this.initialSave = const LocalSave(),
     this.analytics = const NoOpAnalyticsService(),
     this.audio = const PlatformHolidayAudio(),
+    this.onboarding,
     this.clockMs,
     this.now,
     this.loadError = false,
@@ -50,6 +55,7 @@ class GiftRushApp extends StatefulWidget {
   final LocalSave initialSave;
   final AnalyticsService analytics;
   final HolidayAudio audio;
+  final OnboardingAdapter? onboarding;
   final int Function()? clockMs;
   final DateTime Function()? now;
   final bool loadError;
@@ -70,6 +76,7 @@ class _GiftRushAppState extends State<GiftRushApp>
   ShiftSessionController? _shift;
   FactoryScene? _scene;
   ShiftDefinition? _flightDestination;
+  _GiftDelivery? _giftDelivery;
   bool _inShift = false;
   _MenuPage _menuPage = _MenuPage.home;
   bool _storageError = false;
@@ -77,8 +84,12 @@ class _GiftRushAppState extends State<GiftRushApp>
   late int _sessionIndex;
   ShiftResult? _latestResult;
   late final Set<String> _completedShifts;
+  late final Set<String> _deliveredGifts;
+  late final Map<String, Gift> _campaignGifts;
   DailyRecord? _dailyRecord;
   late bool _musicEnabled;
+  late bool _onboardingSeen;
+  bool _mainMenuTrackingStarted = false;
   late bool _foreground;
   int _baselineMs = 0;
   int _resumedAtMs = 0;
@@ -110,8 +121,16 @@ class _GiftRushAppState extends State<GiftRushApp>
     _sessionIndex = save.sessionIndex;
     _latestResult = save.latestResult;
     _completedShifts = save.completedShifts.toSet();
+    _deliveredGifts = save.deliveredGifts.toSet();
+    _campaignGifts = {
+      for (final shift in widget.content.byVersion.values)
+        if (shift.mode == ShiftMode.campaign)
+          for (final gift in shift.rules.catalog.gifts)
+            if (gift.classification == GiftClass.nice) gift.id: gift,
+    };
     _dailyRecord = save.dailyRecord;
     _musicEnabled = save.musicEnabled;
+    _onboardingSeen = save.onboardingSeen;
     final state = WidgetsBinding.instance.lifecycleState;
     _foreground = state == null || state == AppLifecycleState.resumed;
     widget.audio.setMusicPlaying(_foreground && _musicEnabled);
@@ -134,6 +153,7 @@ class _GiftRushAppState extends State<GiftRushApp>
       }
     }
     if (widget.loadError) _recordStorageIssue('read');
+    _scheduleMainMenuTracking();
   }
 
   @override
@@ -145,13 +165,55 @@ class _GiftRushAppState extends State<GiftRushApp>
     }
     if (!foreground) {
       _pause(PauseReason.background);
+    } else {
+      _scheduleMainMenuTracking();
     }
+  }
+
+  bool get _isMainMenuVisible =>
+      mounted && _foreground && !_inShift && _menuPage == _MenuPage.home;
+
+  bool get _isOnboardingEligible =>
+      !_storageError &&
+      _sessionIndex == 0 &&
+      _shift == null &&
+      !_onboardingSeen;
+
+  void _scheduleMainMenuTracking() {
+    if (widget.onboarding == null || _mainMenuTrackingStarted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_isMainMenuVisible && !_mainMenuTrackingStarted) {
+        _mainMenuTrackingStarted = true;
+        unawaited(_trackMainMenu());
+      }
+    });
+    WidgetsBinding.instance.ensureVisualUpdate();
+  }
+
+  Future<void> _trackMainMenu() async {
+    final outcome = await widget.onboarding!.trackMainMenu(
+      isMainMenuVisible: () => _isMainMenuVisible,
+      isOnboardingEligible: () => _isOnboardingEligible,
+      onStarted: () {
+        // A slow response can arrive after a player has started a shift.
+        if (mounted && _inShift) _pause(PauseReason.manual);
+      },
+    );
+    if (!mounted || outcome == OnboardingOutcome.unavailable) return;
+    final openCampaign =
+        outcome == OnboardingOutcome.completed &&
+        _isMainMenuVisible &&
+        _isOnboardingEligible;
+    _onboardingSeen = true;
+    _save();
+    if (openCampaign) _openMenuPage(_MenuPage.campaign);
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     widget.audio.setMusicPlaying(false);
+    if (_giftDelivery != null) widget.audio.setTreeSceneActive(false);
     _ticker.dispose();
     unawaited(_eventSubscription.cancel());
     unawaited(_events.dispose());
@@ -195,11 +257,18 @@ class _GiftRushAppState extends State<GiftRushApp>
           case ShiftMode.campaign:
             if (definition.goal!.isMet(result.stats)) {
               _completedShifts.add(definition.id);
+              final shipped = result.stats.shipped.keys.toSet();
+              _giftDelivery = (
+                arriving: shipped.difference(_deliveredGifts),
+                finale: widget.content.nextAfter(definition) == null,
+              );
+              _deliveredGifts.addAll(shipped);
             }
           case ShiftMode.regional:
             break;
         }
       });
+      if (_giftDelivery != null) widget.audio.setTreeSceneActive(true);
       _save();
       return;
     }
@@ -250,6 +319,12 @@ class _GiftRushAppState extends State<GiftRushApp>
     if (_flightDestination != null) return;
     setState(() => _flightDestination = next);
     if (_foreground && _musicEnabled) widget.audio.playSleighBells();
+  }
+
+  void _finishGiftDelivery() {
+    if (_giftDelivery == null) return;
+    setState(() => _giftDelivery = null);
+    widget.audio.setTreeSceneActive(false);
   }
 
   void _toggleMusic() {
@@ -317,6 +392,7 @@ class _GiftRushAppState extends State<GiftRushApp>
       _inShift = false;
       _menuPage = _MenuPage.home;
     });
+    _scheduleMainMenuTracking();
   }
 
   void _openMenuPage(_MenuPage page) => setState(() => _menuPage = page);
@@ -344,8 +420,10 @@ class _GiftRushAppState extends State<GiftRushApp>
       latestResult: _latestResult,
       unfinishedShift: checkpoint,
       completedShifts: Set.unmodifiable(_completedShifts),
+      deliveredGifts: Set.unmodifiable(_deliveredGifts),
       dailyRecord: _dailyRecord,
       musicEnabled: _musicEnabled,
+      onboardingSeen: _onboardingSeen,
     );
     unawaited(
       widget.repository.save(save).catchError((Object _, StackTrace _) {
@@ -372,10 +450,11 @@ class _GiftRushAppState extends State<GiftRushApp>
     final layout = ResponsiveGameLayout(media.size, media.padding);
     final shift = _shift;
     final flightDestination = _flightDestination;
+    final giftDelivery = _giftDelivery;
     final hasUnfinished = shift?.status == ShiftStatus.paused;
     final showGameplay = _inShift && shift != null && shift.result == null;
     return PopScope(
-      canPop: flightDestination == null,
+      canPop: flightDestination == null && giftDelivery == null,
       child: Scaffold(
         body: Stack(
           fit: StackFit.expand,
@@ -408,7 +487,15 @@ class _GiftRushAppState extends State<GiftRushApp>
                   ),
                 ),
               ),
-            if (flightDestination != null)
+            if (giftDelivery != null)
+              GiftDeliveryScene(
+                images: widget.factoryImages,
+                gifts: [for (final id in _deliveredGifts) ?_campaignGifts[id]],
+                arriving: giftDelivery.arriving,
+                finale: giftDelivery.finale,
+                onFinished: _finishGiftDelivery,
+              )
+            else if (flightDestination != null)
               ShiftFlightTransition(
                 destination: flightDestination.title,
                 sleigh: widget.factoryImages.fromCache(santaSleighAsset),
@@ -653,6 +740,12 @@ class _GiftRushAppState extends State<GiftRushApp>
           ),
           const SizedBox(height: 8),
           const Text('Wrong answers and missed gifts reset your combo.'),
+          const SizedBox(height: 8),
+          FactoryAction(
+            label: 'Play Packing Practice',
+            secondary: true,
+            onPressed: () => _selectShift(widget.content.campaign.first),
+          ),
         ],
       ),
     );

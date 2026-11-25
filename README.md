@@ -4,7 +4,7 @@ Resume development from the [development handoff](docs/DEVELOPMENT_HANDOFF.md) f
 
 ## Run the first playable build
 
-Use Flutter 3.38 / Dart 3.10 or newer and Xcode with an iOS simulator runtime. Run these commands from the project root.
+Use Flutter 3.38 / Dart 3.10 or newer and Xcode with an iOS simulator runtime. The Setgreet SDK requires iOS and iPadOS 15 or later. Run these commands from the project root.
 
 ```sh
 flutter pub get
@@ -23,7 +23,19 @@ python3 tools/check_assets.py
 
 The Python asset check needs Pillow. The Flutter suite also decodes all bundled PNGs and checks the six reference viewports.
 
-The app plays offline. It saves the best score, latest result, and one unfinished shift on the device. Returning from the background keeps the shift paused until the player resumes. Firebase Analytics, Crashlytics, and Setgreet have adapter interfaces for the integration sprint. The simulator build uses `com.ozyunus.santasGiftRush` as its bundle identifier.
+The app plays offline. It saves the best score, latest result, and one unfinished shift on the device. Returning from the background keeps the shift paused until the player resumes. Firebase Analytics and Crashlytics have adapter interfaces for a later integration. The simulator build uses `com.ozyunus.santasGiftRush` as its bundle identifier.
+
+## Workshop onboarding
+
+On the first main menu view of a configured launch, the game sends `trackScreen('main_menu')` with the Boolean `onboarding_eligible` property. Setgreet can show the English workshop tour once when that property is `true`. Finishing opens **Play Shifts**, where the player can start **Packing Practice**. Skipping keeps the main menu available. The built-in **How to Play** screen and practice shift are available offline.
+
+Get the SDK App Key from the Santa's Gift Rush app in Setgreet. Put it under `SETGREET_APP_KEY` in a local JSON file named `.setgreet.local.json`, which is ignored by Git. Use a fresh test simulator to verify first-launch behavior.
+
+```sh
+flutter run -d <simulator-id> --dart-define-from-file=.setgreet.local.json
+```
+
+The published trigger matches the `setgreet:screen` event with `screenName` equal to `main_menu` and `onboarding_eligible` equal to `true`. Completing a flow returned for an eligible first main menu view opens **Play Shifts**. [Setgreet Workshop Onboarding](https://app.setgreet.com/flows/6b06dccd87e178eef956a1f6)
 
 ## Playable modes
 
@@ -44,6 +56,8 @@ Three original instrumentals rotate offline in the menu and during shifts. The *
 - [Snowfall at the Pole](assets/audio/snowfall_at_the_pole.mp3)
 
 The campaign's **Next Shift** action plays a two-second flight before starting the next round. Its optional audio cue is [Sleigh Bells](assets/audio/sleigh_bells.mp3).
+
+Clearing a campaign shift shows a six-second Christmas morning scene before the results. The finale lasts nine seconds. Correctly shipped gifts appear by the tree, with one of each kind kept across shifts and app launches. The scene uses **Snowfall at the Pole**, follows the music setting, and can be skipped.
 
 **Tek proje klasörü / tek asset kökü.** Bu paket, daha önce ayrı teslim edilen 8 hediye, 4 elf, 11 fabrika sprite'ı ve 29 UI/efekt sprite'ını birleştirir. Ayrıca iki bağımsız, opak arka plan bulunur: iPhone dikey ve **yeni** iPad yatay. Toplam **54 PNG** (52 şeffaf sprite + 2 opak arka plan). Her oyun sprite'ı ayrı PNG dosyasıdır; toplu görsel kesimi yapılmadı.
 

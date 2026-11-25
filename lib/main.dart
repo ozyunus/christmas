@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'game/game_config.dart';
 import 'game/shift_catalog.dart';
 import 'platform/local_save.dart';
+import 'platform/setgreet_onboarding.dart';
 import 'ui/factory_scene.dart';
 import 'ui/gift_rush_app.dart';
 
@@ -44,6 +45,9 @@ typedef _BootData = ({
 });
 
 class _GameBootState extends State<_GameBoot> {
+  final _onboarding = Platform.isIOS
+      ? SetgreetOnboardingAdapter.fromEnvironment()
+      : null;
   late Future<_BootData> _boot = _load();
 
   Future<_BootData> _load() async {
@@ -88,6 +92,7 @@ class _GameBootState extends State<_GameBoot> {
             factoryImages: data.images,
             repository: data.repository,
             initialSave: data.save,
+            onboarding: _onboarding,
             loadError: data.loadError,
           );
         }

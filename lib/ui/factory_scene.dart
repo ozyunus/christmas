@@ -8,6 +8,7 @@ import '../game/game_config.dart';
 import '../game/shift_catalog.dart';
 import '../game/shift_session.dart';
 import 'game_layout.dart';
+import 'gift_delivery_scene.dart';
 import 'shift_flight_transition.dart';
 
 const _belt = 'assets/factory/conveyor/conveyor_belt_tile.png';
@@ -25,6 +26,7 @@ Future<Images> loadFactoryImages(Iterable<String> giftAssets) async {
       _sparkle,
       _snowflake,
       santaSleighAsset,
+      christmasMorningAsset,
       for (final pose in ['idle', 'happy', 'sad', 'celebrate'])
         '$_elfFolder$pose.png',
       ...giftAssets,

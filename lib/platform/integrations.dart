@@ -1,14 +1,11 @@
+enum OnboardingOutcome { completed, dismissed, unavailable }
+
 abstract interface class OnboardingAdapter {
-  Future<void> showOnboarding();
-}
-
-final class SetgreetOnboardingAdapter implements OnboardingAdapter {
-  const SetgreetOnboardingAdapter(this.presentFlow);
-
-  final Future<void> Function() presentFlow;
-
-  @override
-  Future<void> showOnboarding() => presentFlow();
+  Future<OnboardingOutcome> trackMainMenu({
+    required bool Function() isMainMenuVisible,
+    required bool Function() isOnboardingEligible,
+    required void Function() onStarted,
+  });
 }
 
 abstract interface class CrashReporter {

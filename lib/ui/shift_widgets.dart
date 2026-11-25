@@ -203,6 +203,7 @@ class _RoadTripMenuState extends State<RoadTripMenu> {
       key: ValueKey(preview.id),
       art: PanelArt.menu,
       title: preview.title,
+      footerHeight: 58,
       footer: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -211,10 +212,12 @@ class _RoadTripMenuState extends State<RoadTripMenu> {
             onPressed: () => setState(() => _selected = null),
             secondary: true,
           ),
+          const SizedBox(width: 8),
           Flexible(
             child: FactoryAction(
               label: 'Play Preview',
               onPressed: () => widget.onSelect(preview),
+              allowTwoLines: true,
             ),
           ),
         ],

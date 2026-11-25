@@ -1,16 +1,22 @@
 PODS:
   - Flutter (1.0.0)
+  - setgreet (1.14.2):
+    - Flutter
 
 DEPENDENCIES:
   - Flutter (from `Flutter`)
+  - setgreet (from `.symlinks/plugins/setgreet/ios`)
 
 EXTERNAL SOURCES:
   Flutter:
     :path: Flutter
+  setgreet:
+    :path: ".symlinks/plugins/setgreet/ios"
 
 SPEC CHECKSUMS:
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
+  setgreet: f170f504ddf55a3ec72333e5ec9008b5ee80ee60
 
-PODFILE CHECKSUM: 3c63482e143d1b91d2d2560aee9fb04ecc74ac7e
+PODFILE CHECKSUM: ce2a4dd764e1c7aeed6a7cdc5e61d092b6dc6d32
 
 COCOAPODS: 1.16.2
