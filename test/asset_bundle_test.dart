@@ -5,11 +5,12 @@ import 'dart:ui' as ui;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:santas_gift_rush/game/game_config.dart';
+import 'package:santas_gift_rush/game/shift_catalog.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('all 54 standalone PNGs load from the Flutter asset bundle', () async {
+  test('all documented PNGs load from the Flutter asset bundle', () async {
     final manifest =
         jsonDecode(File('docs/asset_manifest.json').readAsStringSync())
             as Map<String, dynamic>;
@@ -17,7 +18,7 @@ void main() {
     final bundle = await AssetManifest.loadFromAssetBundle(rootBundle);
     final assetPaths = bundle.listAssets();
     final expectedPaths = images.map((record) => record['path'] as String);
-    expect(images, hasLength(54));
+    expect(images, hasLength(manifest['count'] as int));
     expect(
       assetPaths.where((name) => name.endsWith('.png')),
       unorderedEquals(expectedPaths),
@@ -49,9 +50,28 @@ void main() {
     final config = GameConfig.parse(
       await rootBundle.loadString('data/game_config.v1.json'),
     );
-    expect(
-      config.catalog.gifts.map((gift) => gift.asset),
-      everyElement(isIn(expectedPaths)),
+    final shifts = ShiftCatalog.parse(
+      config,
+      await rootBundle.loadString('data/shifts.v1.json'),
     );
+    expect(shifts.giftAssets, everyElement(isIn(expectedPaths)));
+  });
+
+  test('the three soundtrack tracks and the sleigh cue are bundled', () async {
+    final manifest = await AssetManifest.loadFromAssetBundle(rootBundle);
+    const files = [
+      'assets/audio/workshop_lights.mp3',
+      'assets/audio/sleigh_route.mp3',
+      'assets/audio/snowfall_at_the_pole.mp3',
+      'assets/audio/sleigh_bells.mp3',
+    ];
+    expect(
+      manifest.listAssets().where((name) => name.endsWith('.mp3')),
+      unorderedEquals(files),
+    );
+    for (final file in files) {
+      final bytes = await rootBundle.load(file);
+      expect(bytes.lengthInBytes, greaterThan(1024), reason: file);
+    }
   });
 }

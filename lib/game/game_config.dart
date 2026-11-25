@@ -3,11 +3,12 @@ import 'dart:convert';
 enum GiftClass { nice, naughty }
 
 final class Gift {
-  const Gift(this.id, this.classification, this.asset);
+  const Gift(this.id, this.classification, this.asset, {this.artBottom = .91});
 
   final String id;
   final GiftClass classification;
   final String asset;
+  final double artBottom;
 }
 
 final class GiftCatalog {
@@ -26,7 +27,20 @@ final class DifficultyPhase {
 
 final class DifficultyController {
   DifficultyController(Iterable<DifficultyPhase> phases)
-    : phases = List.unmodifiable(phases);
+    : phases = List.unmodifiable(phases) {
+    if (this.phases.isEmpty) {
+      throw const FormatException('Missing difficulty phases.');
+    }
+    var nextStart = 0;
+    for (final phase in this.phases) {
+      if (phase.startMs != nextStart ||
+          phase.endMs <= phase.startMs ||
+          phase.deadlineMs <= 0) {
+        throw const FormatException('Invalid difficulty phases.');
+      }
+      nextStart = phase.endMs;
+    }
+  }
 
   final List<DifficultyPhase> phases;
 
@@ -119,15 +133,6 @@ final class GameConfig {
       throw const FormatException('Unsupported game configuration.');
     }
 
-    var nextStart = 0;
-    for (final phase in phases) {
-      if (phase.startMs != nextStart ||
-          phase.endMs <= phase.startMs ||
-          phase.deadlineMs <= 0) {
-        throw const FormatException('Invalid difficulty phases.');
-      }
-      nextStart = phase.endMs;
-    }
     var nextCombo = 1;
     for (final (index, tier) in tiers.indexed) {
       final end = tier.to;
@@ -154,6 +159,23 @@ final class GameConfig {
   final GiftCatalog catalog;
   final ScoreCalculator scoring;
   final DifficultyController difficulty;
+
+  GameConfig forShift({
+    required String id,
+    required String mode,
+    GiftCatalog? catalog,
+    DifficultyController? difficulty,
+  }) {
+    final shiftDifficulty = difficulty ?? this.difficulty;
+    return GameConfig._(
+      version: '$version/$id',
+      mode: mode,
+      durationMs: shiftDifficulty.phases.last.endMs,
+      catalog: catalog ?? this.catalog,
+      scoring: scoring,
+      difficulty: shiftDifficulty,
+    );
+  }
 }
 
 /// The published 48271 Park–Miller generator uses integer arithmetic and

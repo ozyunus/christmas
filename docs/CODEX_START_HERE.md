@@ -1,5 +1,7 @@
 # CODEX — BAŞLANGIÇ VE UYGULAMA SÖZLEŞMESİ
 
+For current behavior and the next sprint, start with the [development handoff](DEVELOPMENT_HANDOFF.md). The original implementation brief follows below.
+
 ## Amaç
 Flutter + Flame ile Santa's Gift Rush'ın gerçek çalışan iOS uygulamasını hazırla. **Kodlamayı sen yap; görselleri yeniden üretme.** `assets/` içindeki gerçek kaynakları kullan. `docs/previews` altındaki JPG'leri veya herhangi bir montajı sprite yapma. Proje/repo dosyaları varsa önce kontrol et; yoksa Flutter projesi oluştur.
 
@@ -7,7 +9,7 @@ Flutter + Flame ile Santa's Gift Rush'ın gerçek çalışan iOS uygulamasını 
 - iPhone ve iPad (iOS/iPadOS), dikey iPhone; iPad hem dikey hem yatay uyumlu, responsive/centered arena.
 - 60 saniyelik arcade shift. Tek anda tek hediye. Sekiz sabit hediye görseli NICE/NAUGHTY.
 - NICE: teddy_bear, toy_train, candy_cane, toy_robot. NAUGHTY: coal, dirty_sock, prank_spider, broken_ornament.
-- Sola swipe NICE / sağa swipe NAUGHTY. Aynı iki büyük butonla da karar verilebilir. Her ikisinde aynı kontrol katmanı.
+- Swipe left or tap `SHIP` for NICE. Swipe right or tap `REJECT` for NAUGHTY. Both inputs use the same game action.
 - Doğru cevap +100 x combo tier, yanlış/kaçırılan puan 0 ve combo 0. Oyun 60 sn bitince sonuç ekranına geçer.
 - Hediye zaman aşımı; 0–10 sn 2.0 s, 10–20 1.65, 20–30 1.4, 30–40 1.2, 40–50 1.1, 50–60 1.0. Varsayım/test edilecek, Remote Config'e hazır yapı.
 - Her turda 60 sn nominal oyun zamanı; cihaz arka plana geçince pause/resume kararları tek bir controller'da.
@@ -29,7 +31,7 @@ Flutter + Flame ile Santa's Gift Rush'ın gerçek çalışan iOS uygulamasını 
 
 ## Kabul
 1. Kullanılmayan sprite yok sayılmaz; mevcut dosya yollarıyla proje derlenir ve animasyonlu gift sorting çalışır.
-2. iPhone (390x844, 430x932), iPad (768x1024, 1024x1366, 1024x768, 1366x1024) test edilir. Özellikle safe area, NICE/NAUGHTY hit-box, hand reach, arkaplan crop.
+2. iPhone (390x844, 430x932), iPad (768x1024, 1024x1366, 1024x768, 1366x1024) test edilir. Özellikle safe area, `SHIP` / `REJECT` hit-box, hand reach, arkaplan crop.
 3. Skor, süre, doğruluk, combo, kaybetme/yeniden başlama ve event payload testleri.
 4. `assets` için placeholder/kolaj asset kullanılmaz. Eksik teknik bağımlılığı raporla, dokümana göre karar ver.
 5. Derleme, test komutları ve başarısız kalanlar raporlanır.

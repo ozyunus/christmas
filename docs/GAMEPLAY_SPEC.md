@@ -5,7 +5,7 @@ Oyuncu Noel arifesinde fabrikadaki son elf. Bir hediye gelir, oyuncu onu sevkiya
 
 ## Tur kuralları
 - İlk tur: 60s, tek eşzamanlı hediye, can yok, hata oyunu bitirmez, 60s sonunda Results.
-- Sol swipe / sol buton => NICE. Sağ swipe / sağ buton => NAUGHTY.
+- Swipe left or tap `SHIP` for NICE. Swipe right or tap `REJECT` for NAUGHTY.
 - NICE: `teddy_bear`, `toy_train`, `candy_cane`, `toy_robot`.
 - NAUGHTY: `coal`, `dirty_sock`, `prank_spider`, `broken_ornament`.
 - Oyuncu doğru yanıt verirse combo **önce bir artırılır**, ilgili tier çarpanıyla 100 puan verilir.

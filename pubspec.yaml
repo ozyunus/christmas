@@ -21,12 +21,18 @@ flutter:
   uses-material-design: true
   assets:
     - data/game_config.v1.json
+    - data/shifts.v1.json
     - assets/backgrounds/
     - assets/characters/
+    - assets/audio/
+    - assets/transitions/
     - assets/factory/conveyor/
     - assets/factory/decor/
     - assets/factory/machines/
     - assets/gifts/
+    - assets/gifts/texas/
+    - assets/gifts/silicon_valley/
+    - assets/gifts/great_lakes/
     - assets/ui/buttons/
     - assets/ui/effects/
     - assets/ui/hud/

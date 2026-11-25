@@ -1,0 +1,86 @@
+{
+  "version": 1,
+  "core_gifts": [
+    {"id": "toy_drum", "class": "nice", "asset": "assets/gifts/toy_drum.png", "art_bottom": 0.924},
+    {"id": "toy_sailboat", "class": "nice", "asset": "assets/gifts/toy_sailboat.png", "art_bottom": 0.947},
+    {"id": "burnt_gingerbread", "class": "naughty", "asset": "assets/gifts/burnt_gingerbread.png", "art_bottom": 0.927},
+    {"id": "broken_trumpet", "class": "naughty", "asset": "assets/gifts/broken_trumpet.png", "art_bottom": 0.722}
+  ],
+  "regional_gifts": [
+    {"id": "rocking_horse", "class": "nice", "asset": "assets/gifts/texas/rocking_horse.png", "art_bottom": 0.978},
+    {"id": "cowboy_hat", "class": "nice", "asset": "assets/gifts/texas/cowboy_hat.png", "art_bottom": 0.826},
+    {"id": "broken_wagon", "class": "naughty", "asset": "assets/gifts/texas/broken_wagon.png", "art_bottom": 0.904},
+    {"id": "muddy_boot", "class": "naughty", "asset": "assets/gifts/texas/muddy_boot.png", "art_bottom": 0.931},
+    {"id": "toy_drone", "class": "nice", "asset": "assets/gifts/silicon_valley/toy_drone.png", "art_bottom": 0.827},
+    {"id": "damaged_toy_drone", "class": "naughty", "asset": "assets/gifts/silicon_valley/damaged_toy_drone.png", "art_bottom": 0.828},
+    {"id": "handheld_console", "class": "nice", "asset": "assets/gifts/silicon_valley/handheld_console.png", "art_bottom": 0.987},
+    {"id": "cracked_handheld_console", "class": "naughty", "asset": "assets/gifts/silicon_valley/cracked_handheld_console.png", "art_bottom": 0.988},
+    {"id": "toy_sled", "class": "nice", "asset": "assets/gifts/great_lakes/toy_sled.png", "art_bottom": 0.791},
+    {"id": "plush_snowman", "class": "nice", "asset": "assets/gifts/great_lakes/plush_snowman.png", "art_bottom": 0.985},
+    {"id": "broken_ice_skate", "class": "naughty", "asset": "assets/gifts/great_lakes/broken_ice_skate.png", "art_bottom": 0.955},
+    {"id": "cracked_snow_globe", "class": "naughty", "asset": "assets/gifts/great_lakes/cracked_snow_globe.png", "art_bottom": 0.962}
+  ],
+  "campaign": [
+    {
+      "id": "packing_practice",
+      "title": "Packing Practice",
+      "gift_ids": ["teddy_bear", "toy_train", "coal", "dirty_sock"],
+      "extra_gift_ids": ["toy_drum", "burnt_gingerbread"],
+      "phases": [{"end_sec": 30, "deadline_ms": 2500}],
+      "goal": {"correct": 8}
+    },
+    {
+      "id": "workshop_shift",
+      "title": "Workshop Shift",
+      "phases": [
+        {"end_sec": 15, "deadline_ms": 2000},
+        {"end_sec": 30, "deadline_ms": 1650},
+        {"end_sec": 45, "deadline_ms": 1400}
+      ],
+      "goal": {"correct": 15, "accuracy_pct": 75}
+    },
+    {
+      "id": "christmas_eve_rush",
+      "title": "Christmas Eve Rush",
+      "goal": {"correct": 25, "combo": 10}
+    }
+  ],
+  "regional_previews": [
+    {
+      "id": "texas_roundup",
+      "title": "Texas Toy Roundup",
+      "preview_guide": "Fill the shipment by sending the toys on the order list.",
+      "gift_ids": ["rocking_horse", "cowboy_hat", "broken_wagon", "muddy_boot"],
+      "phases": [
+        {"end_sec": 15, "deadline_ms": 2400},
+        {"end_sec": 30, "deadline_ms": 1900}
+      ],
+      "goal": {"shipped": {"rocking_horse": 2, "cowboy_hat": 2}}
+    },
+    {
+      "id": "silicon_valley_workshop",
+      "title": "Silicon Valley Workshop",
+      "preview_guide": "Check each drone and console for damage before shipping it.",
+      "gift_ids": ["toy_drone", "damaged_toy_drone", "handheld_console", "cracked_handheld_console"],
+      "phases": [
+        {"end_sec": 15, "deadline_ms": 2200},
+        {"end_sec": 30, "deadline_ms": 1750}
+      ],
+      "goal": {"correct": 12, "accuracy_pct": 80}
+    },
+    {
+      "id": "great_lakes_ice_run",
+      "title": "Great Lakes Ice Run",
+      "preview_guide": "Watch for the ice warning. You have less time to sort during each surge.",
+      "gift_ids": ["toy_sled", "plush_snowman", "broken_ice_skate", "cracked_snow_globe"],
+      "phases": [
+        {"end_sec": 10, "deadline_ms": 2300},
+        {"end_sec": 14, "deadline_ms": 1250, "surge": true},
+        {"end_sec": 22, "deadline_ms": 2200},
+        {"end_sec": 26, "deadline_ms": 1100, "surge": true},
+        {"end_sec": 30, "deadline_ms": 2050}
+      ],
+      "goal": {"correct": 10, "combo": 5}
+    }
+  ]
+}

@@ -3,12 +3,35 @@ import 'dart:io';
 
 import '../game/shift_session.dart';
 
+final class DailyRecord {
+  const DailyRecord(this.day, this.score, {this.rulesVersion});
+
+  factory DailyRecord.fromJson(Map<String, dynamic> json) => DailyRecord(
+    json['day'] as int,
+    json['score'] as int,
+    rulesVersion: json['rules_version'] as String?,
+  );
+
+  final int day;
+  final int score;
+  final String? rulesVersion;
+
+  Map<String, Object> toJson() => {
+    'day': day,
+    'score': score,
+    'rules_version': ?rulesVersion,
+  };
+}
+
 final class LocalSave {
   const LocalSave({
     this.bestScore = 0,
     this.sessionIndex = 0,
     this.latestResult,
     this.unfinishedShift,
+    this.completedShifts = const {},
+    this.dailyRecord,
+    this.musicEnabled = true,
   });
 
   factory LocalSave.fromJson(Map<String, dynamic> json) {
@@ -17,6 +40,7 @@ final class LocalSave {
     }
     final result = json['latest_result'] as Map<String, dynamic>?;
     final checkpoint = json['unfinished_shift'] as Map<String, dynamic>?;
+    final daily = json['daily_record'] as Map<String, dynamic>?;
     return LocalSave(
       bestScore: json['best_score'] as int,
       sessionIndex: json['session_index'] as int,
@@ -24,6 +48,11 @@ final class LocalSave {
       unfinishedShift: checkpoint == null
           ? null
           : ShiftCheckpoint.fromJson(checkpoint),
+      completedShifts: Set.unmodifiable(
+        (json['completed_shifts'] as List?)?.cast<String>() ?? const <String>[],
+      ),
+      dailyRecord: daily == null ? null : DailyRecord.fromJson(daily),
+      musicEnabled: json['music_enabled'] as bool? ?? true,
     );
   }
 
@@ -31,6 +60,9 @@ final class LocalSave {
   final int sessionIndex;
   final ShiftResult? latestResult;
   final ShiftCheckpoint? unfinishedShift;
+  final Set<String> completedShifts;
+  final DailyRecord? dailyRecord;
+  final bool musicEnabled;
 
   Map<String, Object?> toJson() => {
     'schema': 1,
@@ -38,6 +70,9 @@ final class LocalSave {
     'session_index': sessionIndex,
     'latest_result': latestResult?.toJson(),
     'unfinished_shift': unfinishedShift?.toJson(),
+    'completed_shifts': completedShifts.toList(),
+    'daily_record': dailyRecord?.toJson(),
+    'music_enabled': musicEnabled,
   };
 }
 

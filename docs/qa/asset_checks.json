@@ -1,9 +1,9 @@
 {
-  "total_png": 54,
-  "alpha_sprite_count": 52,
+  "total_png": 71,
+  "alpha_sprite_count": 69,
   "opaque_background_count": 2,
   "groups": {
-    "gifts": 8,
+    "gifts": 24,
     "characters": 4,
     "factory_conveyor": 2,
     "factory_decor": 3,
@@ -13,7 +13,8 @@
     "icons": 15,
     "panels": 4,
     "effects": 2,
-    "backgrounds": 2
+    "backgrounds": 2,
+    "transitions": 1
   },
   "invalid_alpha_count": 0,
   "bad_sha256_count": 0,

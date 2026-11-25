@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'game/game_config.dart';
+import 'game/shift_catalog.dart';
 import 'platform/local_save.dart';
 import 'ui/factory_scene.dart';
 import 'ui/gift_rush_app.dart';
@@ -35,7 +36,7 @@ class _GameBoot extends StatefulWidget {
 }
 
 typedef _BootData = ({
-  GameConfig config,
+  ShiftCatalog content,
   Images images,
   LocalSaveRepository repository,
   LocalSave save,
@@ -46,8 +47,13 @@ class _GameBootState extends State<_GameBoot> {
   late Future<_BootData> _boot = _load();
 
   Future<_BootData> _load() async {
-    final config = GameConfig.parse(
-      await rootBundle.loadString('data/game_config.v1.json'),
+    final configs = await Future.wait([
+      rootBundle.loadString('data/game_config.v1.json'),
+      rootBundle.loadString('data/shifts.v1.json'),
+    ]);
+    final content = ShiftCatalog.parse(
+      GameConfig.parse(configs[0]),
+      configs[1],
     );
     final storage = await getApplicationSupportDirectory();
     final repository = JsonLocalSaveRepository(
@@ -60,9 +66,9 @@ class _GameBootState extends State<_GameBoot> {
     } catch (_) {
       loadError = true;
     }
-    final images = await loadFactoryImages(config);
+    final images = await loadFactoryImages(content.giftAssets);
     return (
-      config: config,
+      content: content,
       images: images,
       repository: repository,
       save: save,
@@ -78,7 +84,7 @@ class _GameBootState extends State<_GameBoot> {
         final data = snapshot.data;
         if (data != null) {
           return GiftRushApp(
-            config: data.config,
+            content: data.content,
             factoryImages: data.images,
             repository: data.repository,
             initialSave: data.save,

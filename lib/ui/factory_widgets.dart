@@ -9,6 +9,8 @@ import 'game_layout.dart';
 const paperInk = Color(0xFF40281E);
 const evergreen = Color(0xFF154035);
 const snow = Color(0xFFFFFAEC);
+const shipLabel = 'SHIP';
+const rejectLabel = 'REJECT';
 
 class FactoryBackground extends StatelessWidget {
   const FactoryBackground({
@@ -379,8 +381,9 @@ class _DecisionButtonState extends State<DecisionButton> {
   @override
   Widget build(BuildContext context) {
     final choice = widget.choice;
-    final label = choice.name.toUpperCase();
-    final symbol = choice == GiftClass.nice ? 'check' : 'cross';
+    final shipsGift = choice == GiftClass.nice;
+    final label = shipsGift ? shipLabel : rejectLabel;
+    final symbol = shipsGift ? 'check' : 'cross';
     return Semantics(
       button: true,
       label: label,

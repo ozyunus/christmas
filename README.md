@@ -1,5 +1,7 @@
 # Santa’s Gift Rush — Codex Handoff v1
 
+Resume development from the [development handoff](docs/DEVELOPMENT_HANDOFF.md) for the current build, verification results, and next sprint.
+
 ## Run the first playable build
 
 Use Flutter 3.38 / Dart 3.10 or newer and Xcode with an iOS simulator runtime. Run these commands from the project root.
@@ -19,9 +21,29 @@ flutter test
 python3 tools/check_assets.py
 ```
 
-The Python asset check needs Pillow. The Flutter suite also decodes all 54 bundled PNGs and checks the six reference viewports.
+The Python asset check needs Pillow. The Flutter suite also decodes all bundled PNGs and checks the six reference viewports.
 
 The app plays offline. It saves the best score, latest result, and one unfinished shift on the device. Returning from the background keeps the shift paused until the player resumes. Firebase Analytics, Crashlytics, and Setgreet have adapter interfaces for the integration sprint. The simulator build uses `com.ozyunus.santasGiftRush` as its bundle identifier.
+
+## Playable modes
+
+- **Play Shifts** includes Packing Practice, Workshop Shift, and Christmas Eve Rush. Meeting a shift's goals unlocks the next shift on this device.
+- **Arcade** runs the 60-second score attack. **Daily Shift** uses a separate record and repeats the day's gift sequence until midnight UTC.
+- **Santa's Road Trip** includes three free 30-second previews. Fill a shipment in Texas Toy Roundup, find damaged drones and consoles in Silicon Valley Workshop, or sort through two timed ice surges in Great Lakes Ice Run.
+
+Campaign and preview rules are defined in [the shift catalog](data/shifts.v1.json). Road Trip sprites and their generation prompts are listed in [the asset manifest](docs/asset_manifest.json).
+
+The main rotation contains 12 gifts, including in Arcade, Daily Shift, Workshop Shift, and Christmas Eve Rush. Packing Practice uses a six-gift pool. A saved round resumes with the exact gift sequence it started with.
+
+## Holiday soundtrack
+
+Three original instrumentals rotate offline in the menu and during shifts. The **Music On** and **Music Off** control saves the player's preference. Replace a track with another MP3 using the same path, then rebuild the app.
+
+- [Workshop Lights](assets/audio/workshop_lights.mp3)
+- [Sleigh Route](assets/audio/sleigh_route.mp3)
+- [Snowfall at the Pole](assets/audio/snowfall_at_the_pole.mp3)
+
+The campaign's **Next Shift** action plays a two-second flight before starting the next round. Its optional audio cue is [Sleigh Bells](assets/audio/sleigh_bells.mp3).
 
 **Tek proje klasörü / tek asset kökü.** Bu paket, daha önce ayrı teslim edilen 8 hediye, 4 elf, 11 fabrika sprite'ı ve 29 UI/efekt sprite'ını birleştirir. Ayrıca iki bağımsız, opak arka plan bulunur: iPhone dikey ve **yeni** iPad yatay. Toplam **54 PNG** (52 şeffaf sprite + 2 opak arka plan). Her oyun sprite'ı ayrı PNG dosyasıdır; toplu görsel kesimi yapılmadı.
 

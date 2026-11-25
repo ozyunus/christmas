@@ -7,14 +7,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
 import '../game/game_config.dart';
+import '../game/shift_catalog.dart';
 import '../game/shift_session.dart';
 import '../platform/analytics.dart';
+import '../platform/holiday_audio.dart';
 import '../platform/local_save.dart';
 import 'factory_scene.dart';
 import 'factory_widgets.dart';
 import 'game_layout.dart';
+import 'shift_flight_transition.dart';
+import 'shift_widgets.dart';
 
 const gameTitle = "Santa's Gift Rush";
+
+enum _MenuPage { home, campaign, roadTrip, help }
 
 ThemeData factoryTheme() {
   return ThemeData(
@@ -27,21 +33,25 @@ ThemeData factoryTheme() {
 class GiftRushApp extends StatefulWidget {
   const GiftRushApp({
     super.key,
-    required this.config,
+    required this.content,
     required this.factoryImages,
     required this.repository,
     this.initialSave = const LocalSave(),
     this.analytics = const NoOpAnalyticsService(),
+    this.audio = const PlatformHolidayAudio(),
     this.clockMs,
+    this.now,
     this.loadError = false,
   });
 
-  final GameConfig config;
+  final ShiftCatalog content;
   final Images factoryImages;
   final LocalSaveRepository repository;
   final LocalSave initialSave;
   final AnalyticsService analytics;
+  final HolidayAudio audio;
   final int Function()? clockMs;
+  final DateTime Function()? now;
   final bool loadError;
 
   @override
@@ -59,18 +69,30 @@ class _GiftRushAppState extends State<GiftRushApp>
 
   ShiftSessionController? _shift;
   FactoryScene? _scene;
+  ShiftDefinition? _flightDestination;
   bool _inShift = false;
-  bool _showHelp = false;
+  _MenuPage _menuPage = _MenuPage.home;
   bool _storageError = false;
   late int _bestScore;
   late int _sessionIndex;
   ShiftResult? _latestResult;
+  late final Set<String> _completedShifts;
+  DailyRecord? _dailyRecord;
+  late bool _musicEnabled;
+  late bool _foreground;
   int _baselineMs = 0;
   int _resumedAtMs = 0;
   int? _swipeGift;
   double _swipeDistance = 0;
 
   int get _clockMs => widget.clockMs?.call() ?? _stopwatch.elapsedMilliseconds;
+  DateTime _now() => widget.now?.call() ?? DateTime.now();
+
+  ShiftDefinition _definition(ShiftSessionController shift) =>
+      widget.content.byVersion[shift.config.version]!;
+
+  String get _dailyRecordVersion =>
+      _dailyRecord?.rulesVersion ?? widget.content.legacyDailyVersion;
 
   @override
   void initState() {
@@ -87,13 +109,24 @@ class _GiftRushAppState extends State<GiftRushApp>
     _bestScore = save.bestScore;
     _sessionIndex = save.sessionIndex;
     _latestResult = save.latestResult;
+    _completedShifts = save.completedShifts.toSet();
+    _dailyRecord = save.dailyRecord;
+    _musicEnabled = save.musicEnabled;
+    final state = WidgetsBinding.instance.lifecycleState;
+    _foreground = state == null || state == AppLifecycleState.resumed;
+    widget.audio.setMusicPlaying(_foreground && _musicEnabled);
     final checkpoint = save.unfinishedShift;
     if (checkpoint != null) {
       try {
+        final definition = widget.content.byVersion[checkpoint.configVersion];
+        if (definition == null) {
+          throw const FormatException('Saved shift is unavailable.');
+        }
         _shift = ShiftSessionController.restore(
-          config: widget.config,
+          config: definition.rules,
           checkpoint: checkpoint,
           events: _events,
+          now: _now,
         );
       } on FormatException {
         _storageError = true;
@@ -105,7 +138,12 @@ class _GiftRushAppState extends State<GiftRushApp>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed) {
+    final foreground = state == AppLifecycleState.resumed;
+    if (foreground != _foreground) {
+      _foreground = foreground;
+      widget.audio.setMusicPlaying(_foreground && _musicEnabled);
+    }
+    if (!foreground) {
       _pause(PauseReason.background);
     }
   }
@@ -113,6 +151,7 @@ class _GiftRushAppState extends State<GiftRushApp>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    widget.audio.setMusicPlaying(false);
     _ticker.dispose();
     unawaited(_eventSubscription.cancel());
     unawaited(_events.dispose());
@@ -137,7 +176,29 @@ class _GiftRushAppState extends State<GiftRushApp>
       _ticker.stop();
       setState(() {
         _latestResult = result;
-        _bestScore = max(_bestScore, result.stats.score);
+        final definition = _definition(shift);
+        switch (definition.mode) {
+          case ShiftMode.arcade:
+            _bestScore = max(_bestScore, result.stats.score);
+          case ShiftMode.daily:
+            final existing = _dailyRecord;
+            if (existing == null ||
+                existing.day != shift.seed ||
+                _dailyRecordVersion != shift.config.version ||
+                result.stats.score > existing.score) {
+              _dailyRecord = DailyRecord(
+                shift.seed,
+                result.stats.score,
+                rulesVersion: shift.config.version,
+              );
+            }
+          case ShiftMode.campaign:
+            if (definition.goal!.isMet(result.stats)) {
+              _completedShifts.add(definition.id);
+            }
+          case ShiftMode.regional:
+            break;
+        }
       });
       _save();
       return;
@@ -152,17 +213,32 @@ class _GiftRushAppState extends State<GiftRushApp>
     if (secondsChanged || statsChanged) _save();
   }
 
-  void _newShift({String? previousRoundId}) {
+  void _newShift(
+    ShiftDefinition definition, {
+    String? previousRoundId,
+    int? seed,
+  }) {
+    final now = _now();
     final shift = ShiftSessionController(
-      config: widget.config,
-      roundId: '${DateTime.now().microsecondsSinceEpoch}-${++_sessionIndex}',
-      seed: _random.nextInt(2147483646),
+      config: definition.rules,
+      roundId: '${now.microsecondsSinceEpoch}-${++_sessionIndex}',
+      seed:
+          seed ??
+          (definition.mode == ShiftMode.daily
+              ? ShiftCatalog.daySeed(now)
+              : _random.nextInt(2147483646)),
       sessionIndex: _sessionIndex,
       events: _events,
+      now: _now,
     );
     setState(() {
       _shift = shift;
-      _scene = FactoryScene(shift: shift, factoryImages: widget.factoryImages);
+      _flightDestination = null;
+      _scene = FactoryScene(
+        shift: shift,
+        beltSurges: definition.beltSurges,
+        factoryImages: widget.factoryImages,
+      );
       _inShift = true;
     });
     shift.start(previousRoundId: previousRoundId);
@@ -170,7 +246,23 @@ class _GiftRushAppState extends State<GiftRushApp>
     _save();
   }
 
-  Future<void> _confirmNewShift() async {
+  void _flyTo(ShiftDefinition next) {
+    if (_flightDestination != null) return;
+    setState(() => _flightDestination = next);
+    if (_foreground && _musicEnabled) widget.audio.playSleighBells();
+  }
+
+  void _toggleMusic() {
+    setState(() => _musicEnabled = !_musicEnabled);
+    widget.audio.setMusicPlaying(_foreground && _musicEnabled);
+    _save();
+  }
+
+  Future<void> _selectShift(ShiftDefinition definition) async {
+    if (_shift?.status != ShiftStatus.paused) {
+      _newShift(definition);
+      return;
+    }
     final replace = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -188,7 +280,7 @@ class _GiftRushAppState extends State<GiftRushApp>
         ],
       ),
     );
-    if (mounted && replace == true) _newShift();
+    if (mounted && replace == true) _newShift(definition);
   }
 
   void _pause(PauseReason reason) {
@@ -208,6 +300,7 @@ class _GiftRushAppState extends State<GiftRushApp>
     setState(() {
       _scene ??= FactoryScene(
         shift: shift,
+        beltSurges: _definition(shift).beltSurges,
         factoryImages: widget.factoryImages,
       );
       _inShift = true;
@@ -220,8 +313,13 @@ class _GiftRushAppState extends State<GiftRushApp>
 
   void _showMenu() {
     // A paused shift remains available from the menu.
-    setState(() => _inShift = false);
+    setState(() {
+      _inShift = false;
+      _menuPage = _MenuPage.home;
+    });
   }
+
+  void _openMenuPage(_MenuPage page) => setState(() => _menuPage = page);
 
   void _choose(int index, GiftClass choice, InputMethod method) {
     _syncClock();
@@ -245,6 +343,9 @@ class _GiftRushAppState extends State<GiftRushApp>
       sessionIndex: _sessionIndex,
       latestResult: _latestResult,
       unfinishedShift: checkpoint,
+      completedShifts: Set.unmodifiable(_completedShifts),
+      dailyRecord: _dailyRecord,
+      musicEnabled: _musicEnabled,
     );
     unawaited(
       widget.repository.save(save).catchError((Object _, StackTrace _) {
@@ -270,43 +371,60 @@ class _GiftRushAppState extends State<GiftRushApp>
     final media = MediaQuery.of(context);
     final layout = ResponsiveGameLayout(media.size, media.padding);
     final shift = _shift;
+    final flightDestination = _flightDestination;
     final hasUnfinished = shift?.status == ShiftStatus.paused;
     final showGameplay = _inShift && shift != null && shift.result == null;
-    return Scaffold(
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          FactoryBackground(layout: layout, isPlaying: showGameplay),
-          if (showGameplay) _gameplay(layout, shift, media.disableAnimations),
-          if (showGameplay && hasUnfinished)
-            ColoredBox(
-              color: Colors.black54,
-              child: FactoryPanel(
-                art: PanelArt.pause,
-                title: 'Shift Paused',
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      shift.pauseReason == PauseReason.background
-                          ? 'Your shift is ready when you are.'
-                          : 'The clock is paused.',
-                    ),
-                    const SizedBox(height: 10),
-                    FactoryAction(label: 'Resume Shift', onPressed: _resume),
-                    FactoryAction(
-                      label: 'Main Menu',
-                      onPressed: _showMenu,
-                      secondary: true,
-                    ),
-                  ],
+    return PopScope(
+      canPop: flightDestination == null,
+      child: Scaffold(
+        body: Stack(
+          fit: StackFit.expand,
+          children: [
+            FactoryBackground(layout: layout, isPlaying: showGameplay),
+            if (showGameplay) _gameplay(layout, shift, media.disableAnimations),
+            if (showGameplay && hasUnfinished)
+              ColoredBox(
+                color: Colors.black54,
+                child: FactoryPanel(
+                  art: PanelArt.pause,
+                  title: 'Shift Paused',
+                  footer: _musicToggle(),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        shift.pauseReason == PauseReason.background
+                            ? 'Your shift is ready when you are.'
+                            : 'The clock is paused.',
+                      ),
+                      const SizedBox(height: 10),
+                      FactoryAction(label: 'Resume Shift', onPressed: _resume),
+                      FactoryAction(
+                        label: 'Main Menu',
+                        onPressed: _showMenu,
+                        secondary: true,
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          if (_inShift && shift?.result != null) _results(shift!.result!),
-          if (!_inShift && _showHelp) _help(),
-          if (!_inShift && !_showHelp) _menu(hasUnfinished),
-        ],
+            if (flightDestination != null)
+              ShiftFlightTransition(
+                destination: flightDestination.title,
+                sleigh: widget.factoryImages.fromCache(santaSleighAsset),
+                onFinished: () => _newShift(flightDestination),
+              )
+            else if (_inShift && shift?.result != null)
+              _results(shift!),
+            if (!_inShift)
+              switch (_menuPage) {
+                _MenuPage.home => _menu(hasUnfinished),
+                _MenuPage.campaign => _campaignMenu(),
+                _MenuPage.roadTrip => _roadTripMenu(),
+                _MenuPage.help => _help(),
+              },
+          ],
+        ),
       ),
     );
   }
@@ -321,6 +439,9 @@ class _GiftRushAppState extends State<GiftRushApp>
       ..reduceMotion = reduceMotion;
     final playing = shift.status == ShiftStatus.playing;
     final gift = shift.activeGift;
+    final definition = _definition(shift);
+    final goal = definition.goal;
+    final surge = definition.beltSurges.stateAt(shift.elapsedMs);
     final arena = layout.arena;
     final swipeArea = layout.swipeArea;
     final decisionWidth = min(
@@ -372,10 +493,22 @@ class _GiftRushAppState extends State<GiftRushApp>
               top: arena.top + 9,
               left: arena.left,
               width: arena.width,
-              child: GameHud(
-                stats: shift.stats,
-                secondsLeft: _seconds(shift),
-                onPause: () => _pause(PauseReason.manual),
+              child: Column(
+                children: [
+                  GameHud(
+                    stats: shift.stats,
+                    secondsLeft: _seconds(shift),
+                    onPause: () => _pause(PauseReason.manual),
+                  ),
+                  if (goal != null) ...[
+                    const SizedBox(height: 8),
+                    ShiftGoals(goal: goal, stats: shift.stats, onBelt: true),
+                  ],
+                  if (surge != BeltSurgeState.calm) ...[
+                    const SizedBox(height: 6),
+                    BeltSurgeNotice(state: surge),
+                  ],
+                ],
               ),
             ),
             Positioned(
@@ -407,40 +540,64 @@ class _GiftRushAppState extends State<GiftRushApp>
   }
 
   Widget _menu(bool hasUnfinished) {
+    final daily = _dailyRecord;
     return FactoryPanel(
       art: PanelArt.menu,
       title: gameTitle,
+      footer: Row(
+        children: [
+          Expanded(
+            child: FactoryAction(
+              label: 'How to Play',
+              secondary: true,
+              onPressed: () => _openMenuPage(_MenuPage.help),
+            ),
+          ),
+          Expanded(child: _musicToggle()),
+        ],
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Image.asset(
-            'assets/ui/icons/icon_gift.png',
-            width: 55,
-            excludeFromSemantics: true,
-          ),
-          const SizedBox(height: 6),
           Text(
-            'Best Score  $_bestScore',
+            'Arcade Best  $_bestScore',
             style: const TextStyle(
               fontSize: 18,
               color: evergreen,
               fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(height: 14),
-          if (hasUnfinished) ...[
+          if (daily != null &&
+              daily.day == ShiftCatalog.daySeed(_now()) &&
+              _dailyRecordVersion == widget.content.daily.rules.version)
+            Text('Daily Best  ${daily.score}'),
+          const SizedBox(height: 10),
+          if (hasUnfinished)
             FactoryAction(label: 'Resume Shift', onPressed: _resume),
-            FactoryAction(
-              label: 'New Shift',
-              secondary: true,
-              onPressed: _confirmNewShift,
-            ),
-          ] else
-            FactoryAction(label: 'Start Shift', onPressed: _newShift),
           FactoryAction(
-            label: 'How to Play',
+            label: 'Play Shifts',
+            secondary: hasUnfinished,
+            onPressed: () => _openMenuPage(_MenuPage.campaign),
+          ),
+          Wrap(
+            alignment: WrapAlignment.center,
+            children: [
+              FactoryAction(
+                label: 'Arcade',
+                secondary: true,
+                onPressed: () => _selectShift(widget.content.arcade),
+              ),
+              FactoryAction(
+                label: 'Daily Shift',
+                secondary: true,
+                onPressed: () => _selectShift(widget.content.daily),
+              ),
+            ],
+          ),
+          FactoryAction(
+            label: "Santa's Road Trip",
             secondary: true,
-            onPressed: () => setState(() => _showHelp = true),
+            onPressed: () => _openMenuPage(_MenuPage.roadTrip),
           ),
           if (_storageError)
             const Text('Some local progress may be unavailable.'),
@@ -449,6 +606,28 @@ class _GiftRushAppState extends State<GiftRushApp>
     );
   }
 
+  Widget _musicToggle() => Semantics(
+    toggled: _musicEnabled,
+    child: FactoryAction(
+      label: _musicEnabled ? 'Music On' : 'Music Off',
+      secondary: true,
+      onPressed: _toggleMusic,
+    ),
+  );
+
+  Widget _campaignMenu() => CampaignMenu(
+    content: widget.content,
+    completed: _completedShifts,
+    onSelect: _selectShift,
+    onBack: _showMenu,
+  );
+
+  Widget _roadTripMenu() => RoadTripMenu(
+    previews: widget.content.regionalPreviews,
+    onSelect: _selectShift,
+    onBack: _showMenu,
+  );
+
   Widget _help() {
     return FactoryPanel(
       art: PanelArt.tutorial,
@@ -456,19 +635,21 @@ class _GiftRushAppState extends State<GiftRushApp>
       footer: FactoryAction(
         label: 'Back',
         secondary: true,
-        onPressed: () => setState(() => _showHelp = false),
+        onPressed: _showMenu,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text('Sort as many gifts as you can in 60 seconds.'),
+          const Text(
+            "Sort Santa's nice and naughty gifts before the clock runs out.",
+          ),
           const SizedBox(height: 10),
           const Text(
-            'Swipe left or tap NICE for the bear, train, candy cane, or robot.',
+            'Swipe left or tap $shipLabel for good gifts like the bear, toy drum, or sailboat.',
           ),
           const SizedBox(height: 8),
           const Text(
-            'Swipe right or tap NAUGHTY for coal, socks, the spider, or broken ornament.',
+            'Swipe right or tap $rejectLabel for coal, a burnt cookie, or a broken toy.',
           ),
           const SizedBox(height: 8),
           const Text('Wrong answers and missed gifts reset your combo.'),
@@ -477,11 +658,52 @@ class _GiftRushAppState extends State<GiftRushApp>
     );
   }
 
-  Widget _results(ShiftResult result) {
+  Widget _results(ShiftSessionController shift) {
+    final definition = _definition(shift);
+    final result = shift.result!;
     final stats = result.stats;
+    final goal = definition.goal;
+    final passed = goal?.isMet(stats) ?? false;
+    final hasOrder = goal?.shipped.isNotEmpty == true;
+    final next = passed ? widget.content.nextAfter(definition) : null;
+    final campaignComplete =
+        passed && definition.mode == ShiftMode.campaign && next == null;
+    final (title, primaryLabel) = switch (definition.mode) {
+      ShiftMode.campaign when campaignComplete => (
+        'Campaign Complete',
+        'Play Arcade',
+      ),
+      ShiftMode.campaign when passed => ('Shift Cleared', 'Next Shift'),
+      ShiftMode.campaign => ('Goal Missed', 'Retry'),
+      ShiftMode.regional when passed => (
+        hasOrder ? 'Order Complete' : 'Shift Cleared',
+        'Play Again',
+      ),
+      ShiftMode.regional => (
+        hasOrder ? 'Order Incomplete' : 'Goal Missed',
+        'Retry',
+      ),
+      _ => ('Shift Complete', 'Play Again'),
+    };
     return FactoryPanel(
       art: PanelArt.results,
-      title: 'Shift Complete',
+      title: title,
+      footer: FactoryAction(
+        label: primaryLabel,
+        onPressed: () {
+          if (next != null) {
+            _flyTo(next);
+          } else if (campaignComplete) {
+            _newShift(widget.content.arcade);
+          } else {
+            _newShift(
+              widget.content.retryDefinitionFor(definition),
+              previousRoundId: result.roundId,
+              seed: definition.mode == ShiftMode.daily ? shift.seed : null,
+            );
+          }
+        },
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -520,10 +742,13 @@ class _GiftRushAppState extends State<GiftRushApp>
             ],
           ),
           const SizedBox(height: 8),
-          FactoryAction(
-            label: 'Play Again',
-            onPressed: () => _newShift(previousRoundId: result.roundId),
-          ),
+          if (goal != null) ShiftGoals(goal: goal, stats: stats),
+          if (campaignComplete)
+            FactoryAction(
+              label: 'Daily Shift',
+              secondary: true,
+              onPressed: () => _newShift(widget.content.daily),
+            ),
           FactoryAction(
             label: 'Main Menu',
             onPressed: _showMenu,

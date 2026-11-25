@@ -5,8 +5,10 @@ import 'package:flame/game.dart';
 import 'package:flutter/painting.dart';
 
 import '../game/game_config.dart';
+import '../game/shift_catalog.dart';
 import '../game/shift_session.dart';
 import 'game_layout.dart';
+import 'shift_flight_transition.dart';
 
 const _belt = 'assets/factory/conveyor/conveyor_belt_tile.png';
 const _frame = 'assets/factory/conveyor/conveyor_frame.png';
@@ -14,7 +16,7 @@ const _sparkle = 'assets/ui/effects/sparkle_gold.png';
 const _snowflake = 'assets/ui/effects/snowflake_white.png';
 const _elfFolder = 'assets/characters/elf_';
 
-Future<Images> loadFactoryImages(GameConfig config) async {
+Future<Images> loadFactoryImages(Iterable<String> giftAssets) async {
   final images = Images(prefix: '');
   try {
     await images.loadAll([
@@ -22,9 +24,10 @@ Future<Images> loadFactoryImages(GameConfig config) async {
       _frame,
       _sparkle,
       _snowflake,
+      santaSleighAsset,
       for (final pose in ['idle', 'happy', 'sad', 'celebrate'])
         '$_elfFolder$pose.png',
-      for (final gift in config.catalog.gifts) gift.asset,
+      ...giftAssets,
     ]);
   } catch (_) {
     images.clearCache();
@@ -34,11 +37,16 @@ Future<Images> loadFactoryImages(GameConfig config) async {
 }
 
 final class FactoryScene extends FlameGame {
-  FactoryScene({required this.shift, required Images factoryImages}) {
+  FactoryScene({
+    required this.shift,
+    required this.beltSurges,
+    required Images factoryImages,
+  }) {
     images = factoryImages;
   }
 
   final ShiftSessionController shift;
+  final BeltSurges beltSurges;
   ResponsiveGameLayout? layout;
   bool reduceMotion = false;
 
@@ -84,7 +92,10 @@ final class FactoryScene extends FlameGame {
       _drawSprite(
         canvas,
         activeGift.gift.asset,
-        giftCenter.translate(-giftSize * .23 * arrival, 0),
+        giftCenter.translate(
+          -giftSize * .23 * arrival,
+          giftSize * (.91 - activeGift.gift.artBottom),
+        ),
         width: giftSize,
       );
     } else if (recent != null &&
@@ -101,9 +112,10 @@ final class FactoryScene extends FlameGame {
         recent.activeGift.gift.asset,
         giftCenter.translate(
           arena.width * .34 * progress * direction,
-          direction == 0
-              ? giftSize * .36 * progress
-              : -giftSize * .24 * progress,
+          giftSize * (.91 - recent.activeGift.gift.artBottom) +
+              (direction == 0
+                  ? giftSize * .36 * progress
+                  : -giftSize * .24 * progress),
         ),
         width: giftSize * (1 - .28 * progress),
         opacity: 1 - progress,
@@ -152,7 +164,9 @@ final class FactoryScene extends FlameGame {
       height * 121 / 340,
     );
     final tileWidth = opening.height * 2;
-    final offset = reduceMotion ? 0.0 : (shift.elapsedMs * .14) % tileWidth;
+    final offset = reduceMotion
+        ? 0.0
+        : (beltSurges.beltTimeAt(shift.elapsedMs) * .14) % tileWidth;
 
     canvas.save();
     canvas.clipRect(opening);
@@ -164,6 +178,9 @@ final class FactoryScene extends FlameGame {
         Rect.fromLTWH(x, opening.top, tileWidth, opening.height),
         1,
       );
+    }
+    if (beltSurges.stateAt(shift.elapsedMs) == BeltSurgeState.active) {
+      canvas.drawRect(opening, Paint()..color = const Color(0x447FD4F6));
     }
     canvas.restore();
     _drawImage(canvas, _frame, Rect.fromLTWH(left, top, width, height), 1);

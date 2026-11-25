@@ -39,6 +39,7 @@ final class ShiftStats {
     this.correct = 0,
     this.wrong = 0,
     this.missed = 0,
+    this.shipped = const {},
   });
 
   factory ShiftStats.fromJson(Map<String, dynamic> json) => ShiftStats(
@@ -48,6 +49,10 @@ final class ShiftStats {
     correct: json['correct'] as int,
     wrong: json['wrong'] as int,
     missed: json['missed'] as int,
+    shipped: Map.unmodifiable(
+      (json['shipped'] as Map<String, dynamic>?)?.cast<String, int>() ??
+          const <String, int>{},
+    ),
   );
 
   final int score;
@@ -56,6 +61,7 @@ final class ShiftStats {
   final int correct;
   final int wrong;
   final int missed;
+  final Map<String, int> shipped;
 
   int get total => correct + wrong + missed;
   double get accuracyPercent => total == 0 ? 0 : correct * 100 / total;
@@ -67,6 +73,7 @@ final class ShiftStats {
     'correct': correct,
     'wrong': wrong,
     'missed': missed,
+    if (shipped.isNotEmpty) 'shipped': shipped,
   };
 }
 
@@ -231,6 +238,9 @@ final class ShiftSessionController {
         stats.combo < 0 ||
         stats.bestCombo < stats.combo ||
         stats.bestCombo > stats.correct ||
+        stats.shipped.values.any((count) => count <= 0) ||
+        stats.shipped.values.fold(0, (total, count) => total + count) >
+            stats.correct ||
         ((startedAt == null) == (nextAt == null)) ||
         checkpoint.giftIndex != stats.total - (startedAt == null ? 1 : 0) ||
         checkpoint.giftIndex < 0 ||
@@ -397,6 +407,7 @@ final class ShiftSessionController {
     final gift = _activeGift!;
     final correct = outcome == GiftOutcome.correct;
     final combo = correct ? _stats.combo + 1 : 0;
+    final giftId = gift.gift.id;
     _stats = ShiftStats(
       score: _stats.score + (correct ? config.scoring.pointsFor(combo) : 0),
       combo: combo,
@@ -404,6 +415,12 @@ final class ShiftSessionController {
       correct: _stats.correct + (correct ? 1 : 0),
       wrong: _stats.wrong + (outcome == GiftOutcome.wrong ? 1 : 0),
       missed: _stats.missed + (outcome == GiftOutcome.missed ? 1 : 0),
+      shipped: correct && choice == GiftClass.nice
+          ? Map.unmodifiable({
+              ..._stats.shipped,
+              giftId: (_stats.shipped[giftId] ?? 0) + 1,
+            })
+          : _stats.shipped,
     );
     _activeGift = null;
     _nextGiftAtMs = _elapsedMs + giftExitDurationMs;
