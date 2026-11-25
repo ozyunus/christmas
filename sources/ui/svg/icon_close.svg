@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="220" height="224" viewBox="0 0 220 224"><defs>
+    <linearGradient id="gold" x1="0" y1="0" x2="0.4" y2="1"><stop stop-color="#FFF3AE"/><stop offset=".18" stop-color="#E7AC42"/><stop offset=".52" stop-color="#9D531F"/><stop offset=".78" stop-color="#FFCD63"/><stop offset="1" stop-color="#6A3518"/></linearGradient>
+    <linearGradient id="wood" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#945024"/><stop offset=".24" stop-color="#7B3D24"/><stop offset=".7" stop-color="#43271F"/><stop offset="1" stop-color="#2D1A16"/></linearGradient>
+    <linearGradient id="caramel" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#CE9B58"/><stop offset="1" stop-color="#8A4928"/></linearGradient>
+    <linearGradient id="plaque" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#623A24"/><stop offset=".48" stop-color="#311F1C"/><stop offset="1" stop-color="#281B17"/></linearGradient>
+    <linearGradient id="cream" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#FFFADE"/><stop offset="1" stop-color="#EFCF9F"/></linearGradient>
+    <linearGradient id="green" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#69A953"/><stop offset=".4" stop-color="#247C44"/><stop offset="1" stop-color="#07543C"/></linearGradient>
+    <linearGradient id="red" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#FF8471"/><stop offset=".38" stop-color="#D73836"/><stop offset="1" stop-color="#8E1C29"/></linearGradient>
+    <linearGradient id="glow" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#FFE9A7"/><stop offset="1" stop-color="#ED8E35"/></linearGradient>
+    <radialGradient id="star"><stop stop-color="#FFFDCE"/><stop offset=".52" stop-color="#FFC74A"/><stop offset="1" stop-color="#B76A15"/></radialGradient>
+    <radialGradient id="light"><stop stop-color="#FCDDA8" stop-opacity="0.6"/><stop offset="1" stop-color="#E8A04D" stop-opacity="0"/></radialGradient>
+    </defs><circle cx="110" cy="116" r="94" fill="#1F1616" opacity=".3"/><circle cx="110" cy="106" r="94" fill="url(#wood)" stroke="url(#gold)" stroke-width="12"/><circle cx="110" cy="106" r="77" fill="url(#green)" stroke="#F1C66B" stroke-width="5"/><path d="M66 66 L155 155 M155 66 L66 155" fill="none" stroke="#FFF4C8" stroke-width="18" stroke-linecap="round"/></svg>

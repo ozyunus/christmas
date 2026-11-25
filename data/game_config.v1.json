@@ -1,0 +1,120 @@
+{
+  "version": "1.0.0",
+  "game_id": "santas_gift_rush",
+  "mode": "arcade",
+  "round_duration_ms": 60000,
+  "one_active_gift": true,
+  "inputs": {
+    "swipe_left": "nice",
+    "swipe_right": "naughty",
+    "left_button": "nice",
+    "right_button": "naughty"
+  },
+  "gift_pool": [
+    {
+      "id": "teddy_bear",
+      "class": "nice",
+      "asset": "assets/gifts/teddy_bear.png"
+    },
+    {
+      "id": "toy_train",
+      "class": "nice",
+      "asset": "assets/gifts/toy_train.png"
+    },
+    {
+      "id": "candy_cane",
+      "class": "nice",
+      "asset": "assets/gifts/candy_cane.png"
+    },
+    {
+      "id": "toy_robot",
+      "class": "nice",
+      "asset": "assets/gifts/toy_robot.png"
+    },
+    {
+      "id": "coal",
+      "class": "naughty",
+      "asset": "assets/gifts/coal.png"
+    },
+    {
+      "id": "dirty_sock",
+      "class": "naughty",
+      "asset": "assets/gifts/dirty_sock.png"
+    },
+    {
+      "id": "prank_spider",
+      "class": "naughty",
+      "asset": "assets/gifts/prank_spider.png"
+    },
+    {
+      "id": "broken_ornament",
+      "class": "naughty",
+      "asset": "assets/gifts/broken_ornament.png"
+    }
+  ],
+  "combo_tiers": [
+    {
+      "from": 1,
+      "to": 4,
+      "multiplier_scaled10": 10
+    },
+    {
+      "from": 5,
+      "to": 9,
+      "multiplier_scaled10": 12
+    },
+    {
+      "from": 10,
+      "to": 14,
+      "multiplier_scaled10": 15
+    },
+    {
+      "from": 15,
+      "to": 19,
+      "multiplier_scaled10": 18
+    },
+    {
+      "from": 20,
+      "to": null,
+      "multiplier_scaled10": 20
+    }
+  ],
+  "base_correct_score": 100,
+  "score_wrong": 0,
+  "score_missed": 0,
+  "deadline_by_elapsed_sec": [
+    {
+      "start": 0,
+      "end": 10,
+      "gift_deadline_ms": 2000
+    },
+    {
+      "start": 10,
+      "end": 20,
+      "gift_deadline_ms": 1650
+    },
+    {
+      "start": 20,
+      "end": 30,
+      "gift_deadline_ms": 1400
+    },
+    {
+      "start": 30,
+      "end": 40,
+      "gift_deadline_ms": 1200
+    },
+    {
+      "start": 40,
+      "end": 50,
+      "gift_deadline_ms": 1100
+    },
+    {
+      "start": 50,
+      "end": 60,
+      "gift_deadline_ms": 1000
+    }
+  ],
+  "special_rules_enabled": false,
+  "progression_levels_enabled": false,
+  "config_values_are_prototype_assumptions": true
+}

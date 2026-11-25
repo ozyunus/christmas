@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "event_names": [
+    "onboarding_started",
+    "onboarding_step_viewed",
+    "onboarding_completed",
+    "tutorial_started",
+    "tutorial_error",
+    "tutorial_completed",
+    "game_started",
+    "difficulty_phase_entered",
+    "gift_sorted",
+    "gift_missed",
+    "game_interrupted",
+    "game_resumed",
+    "game_completed",
+    "game_replayed",
+    "game_abandoned_inferred",
+    "app_error_context"
+  ],
+  "notes": [
+    "Do not send PII in params",
+    "No login required",
+    "Firebase SDK config and consent required",
+    "Setgreet flow event mapping should be verified with current SDK"
+  ]
+}

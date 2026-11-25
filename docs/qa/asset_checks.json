@@ -1,0 +1,28 @@
+{
+  "total_png": 54,
+  "alpha_sprite_count": 52,
+  "opaque_background_count": 2,
+  "groups": {
+    "gifts": 8,
+    "characters": 4,
+    "factory_conveyor": 2,
+    "factory_decor": 3,
+    "factory_machines": 6,
+    "buttons": 5,
+    "hud": 3,
+    "icons": 15,
+    "panels": 4,
+    "effects": 2,
+    "backgrounds": 2
+  },
+  "invalid_alpha_count": 0,
+  "bad_sha256_count": 0,
+  "new_ipad_landscape_independent": true,
+  "known_gaps": [
+    "no dedicated 3D iPad portrait background",
+    "elf costume inconsistency between poses",
+    "flat vector 2.5D machinery/UI vs 3D art",
+    "factory backgrounds not same-camera identical architecture"
+  ],
+  "previews_not_game_assets": true
+}
